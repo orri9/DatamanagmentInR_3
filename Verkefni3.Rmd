@@ -1,0 +1,223 @@
+#---
+#title: "Verkefni3"
+#author: "Orri Leví Úlfarsson - olu2@hi.is"
+#date: "March 12, 2018"
+#output: html_document
+#---
+
+
+####Byrja á því að setja inn pakkana sem eg ætla að nota
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+
+#### og setja rétt directory
+```{r}
+setwd("/Users/orril/OneDrive/Skoli/Old/L�kindareikningur og T�lfr��i/R")
+```
+
+
+
+
+#Liður A
+####lesa inn skjalið husnaedi_stort.txt
+```{r}
+OLU <- read.table("husnaedi_stort.txt",header=TRUE,sep= ",")
+```
+
+####lögum allt inní teg_eigna
+```{r}
+OLU$teg_eign <-as.factor(OLU$teg_eign)
+levels(OLU$teg_eign)
+levels(OLU$teg_eign)<-c("Ósamþykktar","Íbúðareign","Íbúðarhús", "Einbýlishús","Fjölbýlishús","Gistihús","Gistiheimili","herbergi", "Parhús", "Raðhús","Séreign")
+levels(OLU$teg_eign)
+```
+
+####lögum kdagur
+```{r}
+str(OLU)
+names(OLU)[1]<-"kdagur"
+```
+
+####tökum út allt sem er ekki Einbýlishús, Raðhús, Einbýlishús og Fjölbýlishús
+```{r}
+OLU <- subset(OLU, teg_eign == "Parhús"|teg_eign =="Raðhús"|teg_eign =="Einbýlishús"|teg_eign =="Fjölbýlishús" )
+OLU$teg_eign <- droplevels(OLU$teg_eign)
+levels(OLU$teg_eign)
+```
+
+####Fermetraverð eigna = nuvirdi/ibm2
+```{r}
+OLU["fermetraverd"] <- round(OLU$nuvirdi / OLU$ibm2)
+str(OLU)
+```
+
+
+
+
+#Liður B
+####hverfin okkar Mosfellsbær, Akranes og Fljótadalshérað
+```{r}
+hverfi<-c(800, 3000, 7035)
+```
+
+####velja bara þau akvednu hverfi og gefum þeim nöfn
+```{r}
+OLU2 <-filter(OLU, matssvaedi %in% hverfi)
+OLU2$matssvaedi <-as.factor(OLU2$matssvaedi)
+levels(OLU2$matssvaedi)
+levels(OLU2$matssvaedi)<-c("Mosfellsbær", "Akranes", "Fljótadalshérað")
+```
+
+####Tafla sem sýnir fjöldan
+```{r}
+kable(table(OLU2$matssvaedi, OLU2$teg_eign),align = 'r', digits = 3)
+```
+
+####Tafla sem sýnir hlutfallið
+```{r}
+kable(prop.table(table(OLU2$matssvaedi, OLU2$teg_eign),1), align = 'r', digits = 2)
+```
+
+####Mynd sem sýnir fjölda eigna af hverri tegund
+```{r out.width="1600px", out.height="100px"}
+ggplot(OLU2,aes(x=matssvaedi, fill=matssvaedi)) +
+                  geom_bar() +
+                  facet_grid(~teg_eign, margins= TRUE) +
+                  xlab('Hverfi') +
+                  ylab('Fjöldi íbúða') + 
+                  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+Hér er ekki tafla fyrir fjölbýlishús því það eru engin fjölbýlishús í hverfunum.
+
+                  
+                  
+
+#Liður C
+####Búum til nýja töflu
+```{r}
+OLU.rvk<-filter(OLU, svfn=="0")
+```
+
+####Búum til breytuna
+```{r}
+OLU.rvk["ibm2.flokk"] <-  ifelse(OLU.rvk$ibm2<50, "mjöglitlar",
+                          ifelse(OLU.rvk$ibm2<80, "litlar",
+                          ifelse(OLU.rvk$ibm2<110, "miðlungs",
+                          ifelse(OLU.rvk$ibm2<140, "stórar",
+                          ifelse(OLU.rvk$ibm2>=140, "mjög stórar",
+                                          NA  )))))
+str(OLU.rvk$ibm2.flokk)
+```
+
+####Gerum töfluna
+```{r}
+kable(OLU.rvk %>%
+  group_by(teg_eign,ibm2.flokk) %>%
+  dplyr::summarise(Medal_fermetraverd = mean(fermetraverd), 
+        Stadalfravik = sd(fermetraverd, na.rm= TRUE), fjoldi = n()), align = 'r', digits = 2)
+```
+
+Flest hús falla undir stór eða mjög stór með þessari flokkun okkar. Einbýlishúsin eru þau einu sem koma í öllum mismunandi stærðunum. Það eru ekki til mjög lítil Fjölbýlishús, Parhús eða raðhús. Það eru engin miðlungs stór fjölbýlishús.
+
+
+
+
+#Liður D
+####Veljum hverfin
+```{r}
+OLU.Selja <-filter(OLU, matssvaedi %in% 150)
+OLU.Holar <-filter(OLU, matssvaedi %in% 160)
+set.seed(0510)
+```
+
+####Veljum Eignir
+```{r}
+OLU.Selja.Sample <- sample_n(OLU.Selja, 50)
+OLU.Holar.Sample <- sample_n(OLU.Holar, 50)
+```
+
+####Sameinum
+```{r}
+OLU.HogS.Sample <- rbind(OLU.Holar.Sample, OLU.Selja.Sample)
+str(OLU.HogS.Sample)
+```
+
+
+#Liður E
+####Tilgáturnar mínar eru:
+Áður en við förum að gera svokallaða t.prófun á muninum á tveim óháðum meðaltölum könnum við hvort að $\sigma_1^2 = \sigma_2^2$ eða hvort að  $\sigma_1^2 \neq \sigma_2^2$
+$Núlltilgátan \space er, \space H_0: \mu_1  - \mu_2 = 0$ sem væri þá $H_0: \sigma_1^2 = \sigma_2^2$
+
+$Gagntilgátan\space er, \space H_1: \mu_1 - \mu_2 \neq 0$ sem væri þá $H_1: \sigma_1^2 \neq \sigma_2^2$
+
+Þar sem $\sigma_1^2$ er dreifni fermetraverðs í Seljahverfi og $\sigma_2^2$ er dreifni fermetraverðs í Hólar og Berg.
+
+####Gerum bartlett prófun
+```{r}
+bartlett <- c<-bartlett.test(fermetraverd ~ matssvaedi, data = OLU.HogS.Sample)
+bartlett
+```
+
+Þá höfum við sannað að $H_0$ sé ekki endilega satt og gerum því ráð fyrir að dreifni fermetraverðsins sé ekki það sama út frá Bartlett prófinu.
+
+####Gerum annað próf
+```{r}
+Prof.1 <- t.test(fermetraverd ~ matssvaedi, 
+                   var.equal = FALSE, data=OLU.HogS.Sample)
+Prof.1
+```
+
+Til að kanna mun á meðaltölum ($\mu_1 \space og \space \mu_2$) úr tveim óháðum þýðum, notum við svokallaða t.próf sem fylgir T-dreifingu $T \thicksim t_{85}$, við skilgreinum $t_{\alpha,r}$ með $t_{\alpha/2,r}$ eða $t_{0.025,85}$), sem má nálga við staðlaða normaldreifingu $Z \thicksim (0,1)$.
+
+
+Prófstærðin okkar er `r round(Prof.1$statistic,3)`.  P.gildið sem er reiknað útfrá gildi prófstærðarinnar er  $p$ = `r (Prof.1$p.value)`. Öryggisbil fyrir mismun meðaltalanna tveggja er `r round(Prof.1$conf.int,3)` út frá gefnum upplýsingum drögum við þá ályktun að munurinn er mögulega = 0 og höfum þá sannað $H_0$
+
+
+
+
+#Liður F
+####Búum til breytuna
+```{r}
+OLU.HogS.Sample["erbadkar"] <-  ifelse(OLU.HogS.Sample$fjbkar==0, "NEI",
+                                ifelse(OLU.HogS.Sample$fjbkar>0, "JÁ",
+                                          NA  ))
+
+kable(table(OLU.HogS.Sample$erbadkar),align="c", digits = 3)
+```
+
+####Skoðum aðeins gögnin og undirbúm prófið
+```{r}
+kable(table(OLU.HogS.Sample$matssvaedi,OLU.HogS.Sample$erbadkar),align = 'l', digits = 3)
+kable(prop.table(table(OLU.HogS.Sample$matssvaedi,OLU.HogS.Sample$erbadkar), margin = 1),align="l", digits = 3)
+p.test <- prop.test(table(OLU.HogS.Sample$matssvaedi,OLU.HogS.Sample$erbadkar))
+```
+
+Við gerum prop.test() skipun, til að sjá hvort að það sé munur á hlutfalli eigna með baðkari í hverfunum. Þar sem $p_S$ er hlutfall eigna í Seljahverfi sem ekki eru með baðkar og $p_H$ er hlutfall eigna í Hóla hverfi sem ekki eru með baðkar.
+
+$$H_0: p_S - p_H = 0$$
+$$H_1:p_S - p_H \neq 0$$
+```{r}
+p.test
+```
+
+Prófið er með prófstærð = `r round(p.test$statistic,3)` með $(r-1)(s-1)=(2-1)(2-1)=1$ frígráðu og p.gildi reiknað útfrá gildi prófstærðarinnar er  $p$ = `r round(p.test$p.value,3)`. Öryggisbil fyrir mismun hlutfallana tveggja er `r round(p.test$conf.int,3)`. Við sjáum bæði á öryggisbilinu og út frá p.gildinu $>.05$ sem eru þau $\alpha$ mörk sem við gáfum okkur í upphafi, að samkvæmt gefnum upplýsingum höfnum við ekki $H_0$ og gerum þá ráð fyrir því að það sé enginn munur á milli hlutfalla eigna sme hafa baðkar og þeirra sem hafa það ekki í hverfunum tveimur. Við þessu mátti búast eftir forskoðun gaagnanna þar sem þar sést að aðeins 4 hús í öðru hverfinu eru ekki með baðkar en öll húin í hinu hverfinu er með baðkar
+
+
+
+
+#Liður G
+####Teiknum myndina
+```{r}
+ggplot(OLU.Selja.Sample, aes(x=ibm2, y=nuvirdi, colour="purple")) +
+              geom_point(aes(colour=fermetraverd)) +
+              scale_color_gradient(low = "blue", high = "red", name="fermetraverd") +
+              xlab('Stærð eignar') +
+              ylab('Núvirði eignar') +
+              facet_grid(~matssvaedi) +
+              geom_smooth(method = "lm",colour="blue")
+```
